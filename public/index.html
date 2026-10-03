@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VISITR-AI — Intelligent Visitor Analytics & Face Tracking</title>
+    <meta name="description" content="State-of-the-art AI-powered face tracking, auto-registration, and unique visitor analytics platform built for Katomaran Hackathon.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="ambient-background">
+        <div class="glow-orb orb-1"></div>
+        <div class="glow-orb orb-2"></div>
+        <div class="glow-orb orb-3"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Navigation Header -->
+        <header class="navbar">
+            <div class="brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-eye-shield"></i>
+                </div>
+                <div class="brand-text">
+                    <span class="title">VISITR<span class="highlight">-AI</span></span>
+                    <span class="subtitle">AI Face Tracking & Visitor Analytics</span>
+                </div>
+            </div>
+            
+            <div class="nav-status">
+                <div class="status-indicator active">
+                    <span class="pulse-dot"></span>
+                    <span class="status-text">SYSTEM HEALTHY</span>
+                </div>
+                <div class="version-badge">v1.0.0 Prod</div>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Content -->
+        <main class="dashboard-grid">
+            <!-- Metric Cards Row -->
+            <section class="metrics-row">
+                <div class="metric-card glass-card">
+                    <div class="card-icon cyan"><i class="fa-solid fa-users"></i></div>
+                    <div class="card-data">
+                        <span class="card-label">Total Unique Visitors</span>
+                        <h2 class="card-value" id="val-unique">--</h2>
+                        <span class="card-subtext"><i class="fa-solid fa-fingerprint"></i> Zero Deduplication Error</span>
+                    </div>
+                </div>
+
+                <div class="metric-card glass-card">
+                    <div class="card-icon emerald"><i class="fa-solid fa-person-walking-arrow-right"></i></div>
+                    <div class="card-data">
+                        <span class="card-label">Currently Inside</span>
+                        <h2 class="card-value" id="val-inside">--</h2>
+                        <span class="card-subtext"><i class="fa-solid fa-building-user"></i> Active Occupancy</span>
+                    </div>
+                </div>
+
+                <div class="metric-card glass-card">
+                    <div class="card-icon blue"><i class="fa-solid fa-right-to-bracket"></i></div>
+                    <div class="card-data">
+                        <span class="card-label">Total Entries</span>
+                        <h2 class="card-value" id="val-entries">--</h2>
+                        <span class="card-subtext"><i class="fa-solid fa-arrow-right-to-bracket"></i> Recorded Door Entry</span>
+                    </div>
+                </div>
+
+                <div class="metric-card glass-card">
+                    <div class="card-icon amber"><i class="fa-solid fa-right-from-bracket"></i></div>
+                    <div class="card-data">
+                        <span class="card-label">Total Exits</span>
+                        <h2 class="card-value" id="val-exits">--</h2>
+                        <span class="card-subtext"><i class="fa-solid fa-arrow-right-from-bracket"></i> Recorded Door Exit</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Video Feed Simulator & Model Specs -->
+            <section class="content-split">
+                <!-- Left: Live Video Analytics Preview -->
+                <div class="glass-card video-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-video"></i> Live Camera Analytics Feed</h3>
+                        <div class="feed-badge"><span class="pulse-red"></span> LIVE FEED</div>
+                    </div>
+                    <div class="video-container">
+                        <div class="simulation-canvas" id="canvas-overlay">
+                            <div class="bbox-overlay" id="demo-bbox">
+                                <div class="bbox-tag">VIS-00001 | 0.94 Conf</div>
+                            </div>
+                            <div class="watermark"><i class="fa-solid fa-shield-halved"></i> VISITR-AI Realtime Processor</div>
+                        </div>
+                    </div>
+                    <div class="video-meta">
+                        <div class="meta-item"><span>Detector:</span> YOLOv8n-Face</div>
+                        <div class="meta-item"><span>Tracker:</span> ByteTrack</div>
+                        <div class="meta-item"><span>Embedding:</span> ArcFace 512-D</div>
+                        <div class="meta-item"><span>Resolution:</span> 1920x1080 @ 30 FPS</div>
+                    </div>
+                </div>
+
+                <!-- Right: System Model Architecture -->
+                <div class="glass-card specs-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-microchip"></i> System Health & AI Engine</h3>
+                    </div>
+                    <div class="engine-list">
+                        <div class="engine-item">
+                            <div class="engine-info">
+                                <span class="engine-name"><i class="fa-solid fa-object-group"></i> Face Detection Engine</span>
+                                <span class="engine-desc">YOLOv8n-Face (0.50 IoU / 0.50 Conf)</span>
+                            </div>
+                            <span class="engine-status badge-success">ACTIVE</span>
+                        </div>
+                        <div class="engine-item">
+                            <div class="engine-info">
+                                <span class="engine-name"><i class="fa-solid fa-route"></i> Multi-Object Tracking</span>
+                                <span class="engine-desc">ByteTrack (Hungarian Matcher)</span>
+                            </div>
+                            <span class="engine-status badge-success">ACTIVE</span>
+                        </div>
+                        <div class="engine-item">
+                            <div class="engine-info">
+                                <span class="engine-name"><i class="fa-solid fa-dna"></i> Identity Embedding</span>
+                                <span class="engine-desc">InsightFace ArcFace 512-D (L2 Norm)</span>
+                            </div>
+                            <span class="engine-status badge-success">ACTIVE</span>
+                        </div>
+                        <div class="engine-item">
+                            <div class="engine-info">
+                                <span class="engine-name"><i class="fa-solid fa-database"></i> Persistence Engine</span>
+                                <span class="engine-desc">SQLite Exactly-Once Ledger</span>
+                            </div>
+                            <span class="engine-status badge-success">SYNCED</span>
+                        </div>
+                    </div>
+
+                    <div class="api-actions">
+                        <a href="/api/stats" target="_blank" class="btn btn-outline"><i class="fa-solid fa-code"></i> Stats API</a>
+                        <a href="/api/visitors" target="_blank" class="btn btn-outline"><i class="fa-solid fa-user-gear"></i> Visitors API</a>
+                        <a href="/api/events" target="_blank" class="btn btn-outline"><i class="fa-solid fa-list-check"></i> Events API</a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Visitor Log Table -->
+            <section class="glass-card table-card">
+                <div class="card-header">
+                    <h3><i class="fa-solid fa-address-book"></i> Registered Visitor Ledger</h3>
+                    <div class="table-search">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="visitor-search" placeholder="Search Visitor ID or Status...">
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Avatar</th>
+                                <th>Visitor ID</th>
+                                <th>First Registered</th>
+                                <th>Last Activity</th>
+                                <th>Status</th>
+                                <th>Entries</th>
+                                <th>Exits</th>
+                                <th>Similarity Conf</th>
+                            </tr>
+                        </thead>
+                        <tbody id="visitor-table-body">
+                            <tr>
+                                <td colspan="8" class="text-center">Loading registered visitors...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer with mandatory Katomaran statement -->
+        <footer class="footer-bar">
+            <div class="footer-content">
+                <p>VISITR-AI — Intelligent Face Tracking, Auto-Registration & Unique Visitor Analytics</p>
+                <p class="attribution">This project is a part of a hackathon run by <a href="https://katomaran.com" target="_blank" rel="noopener noreferrer">https://katomaran.com</a></p>
+            </div>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
