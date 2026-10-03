@@ -4,104 +4,119 @@
 
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests: Pytest](https://img.shields.io/badge/Tests-18%20Passed-brightgreen.svg)](docs/TESTING.md)
+[![Tests: Pytest](https://img.shields.io/badge/Tests-26%20Passed-brightgreen.svg)](docs/TESTING.md)
 
 ---
 
-## Overview
+## Project Overview
 
-**VISITR-AI** is a modular, production-style computer vision system engineered for real-time video feeds (MP4 and RTSP IP cameras). It detects faces, tracks targets continuously using ByteTrack, auto-registers genuinely new visitors with persistent Face IDs (`VIS-XXXXX`), recognizes returning faces via InsightFace ArcFace 512-d embeddings, and maintains audit-defensible unique visitor analytics with exactly-once ENTRY/EXIT event logging.
+**VISITR-AI** is a modular, production-style computer vision system engineered for real-time video feeds (MP4 video files and live RTSP IP camera streams). It detects faces using YOLOv8, tracks targets continuously using ByteTrack, auto-registers genuinely new visitors with persistent Face IDs (`VIS-XXXXX`), recognizes returning faces via InsightFace ArcFace 512-d embeddings, and maintains audit-defensible unique visitor analytics with exactly-once `ENTRY` and `EXIT` event logging.
 
 ---
 
 ## Problem Statement
 
-Traditional video analytics systems struggle with identity fragmentation: when a person is temporarily occluded or leaves and returns, traditional trackers assign a new temporary ID, causing **inflated unique visitor counts**, **duplicate entry/exit logs**, and **corrupted analytics**.
+Traditional video analytics systems suffer from **identity fragmentation**: when a person is temporarily occluded, turns away, or leaves and returns, traditional trackers assign a new temporary ID. This causes **inflated unique visitor counts**, **duplicate entry/exit logs**, and **corrupted analytics**.
 
 ---
 
-## Solution
+## Objective
 
-VISITR-AI solves this through a **Decoupled Identity Architecture**:
-- **Temporary Spatial Tracking**: `track_id` (assigned by ByteTrack per continuous track)
-- **Persistent Facial Identity**: `face_id` (format: `VIS-00001`, assigned by InsightFace / ArcFace cosine matching)
-
-When a visitor exits and re-enters under a new `track_id` (e.g. `track_id = 31`), ArcFace embedding matching resolves the target back to their original `face_id` (`VIS-00001`). This records a re-entry visit while preserving the exact `count_unique_visitors()` metric without count inflation.
+The primary objective of VISITR-AI is to decouple temporary spatial tracking from persistent facial identity. By pairing Supervision ByteTrack for continuous spatial tracking with InsightFace ArcFace 512-d embeddings and SQLite persistence, VISITR-AI accurately recognizes returning visitors, records re-entry visits, and maintains an uncorrupted unique visitor count (`count_unique_visitors()`).
 
 ---
 
 ## Features
 
 - **Dual Source Support**: Process static MP4 video files or live RTSP streams with auto-reconnection.
-- **YOLO Face Detection**: Configurable confidence, IoU, and detection frame skipping (`skip_frames`).
-- **ByteTrack Tracking**: Smooth target tracking handling temporary occlusions.
-- **ArcFace Recognition**: SOTA 512-dimensional normalized feature embedding extraction.
-- **Best-Frame Auto-Registration**: Quality filtering (minimum size, sharpness, confidence) selecting the optimal crop before ID assignment.
+- **YOLO Face Detection**: Configurable confidence (`0.50`), IoU (`0.45`), and frame skipping (`skip_frames = 5`).
+- **ByteTrack Tracking**: Continuous multi-object spatial tracking handling temporary occlusions (`max_age = 30`).
+- **ArcFace Recognition**: SOTA 512-dimensional normalized feature embedding extraction (`buffalo_sc`).
+- **Best-Frame Auto-Registration**: Quality filtering (sharpness, size, confidence) selecting optimal crops before ID assignment (`VIS-XXXXX`).
 - **Visitor State Machine**: Strict `OUTSIDE` -> `INSIDE` -> `OUTSIDE` state guards guaranteeing exactly-once `ENTRY` and `EXIT` events.
-- **Atomic Persistence**: Image crops saved atomically (`.tmp` write -> rename) to `logs/entries/` and `logs/exits/` alongside SQLite DB transactions.
-- **Structured Logging**: Standardized audit log written to `logs/events.log`.
-- **Streamlit UI**: Real-time analytics dashboard with metric KPIs and image carousels.
+- **Atomic Persistence**: Image crops saved atomically (`.tmp` write -> rename) to `logs/entries/` and `logs/exits/` alongside SQLite ORM transactions.
+- **Structured Logging**: Standardized audit logs written to `logs/events.log`.
+- **Streamlit Web Dashboard**: Real-time analytics web dashboard with metric KPIs and image crop carousels.
 
 ---
 
 ## Architecture
 
+VISITR-AI uses a decoupled pipeline architecture separating temporary frame-to-frame spatial tracking (`track_id`) from permanent facial biometric identity (`face_id`).
+
+For full details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+---
+
+## Architecture Diagram
+
 ```
-                    MP4 / RTSP Stream
-                            │
-                            ▼
-                     VideoSource Layer
-             (FileVideoSource / RTSPVideoSource)
-                            │
-                            ▼
-                 YOLO Face Detector (skip_frames)
-                            │
-                            ▼
-                 ByteTrack Multi-Object Tracker
+                              Video Source
+                             (MP4 / RTSP)
+                                  │
+                                  ▼
+                            Frame Manager
+                     (FileSource / RTSPSource)
+                                  │
+                                  ▼
+                         YOLO Face Detection
+                           (skip_frames=5)
+                                  │
+                                  ▼
+                              ByteTrack
                      (assigns temporary track_id)
-                            │
-                            ▼
-                 Face Quality Evaluator
-               (min_size, sharpness, confidence)
-                            │
-                            ▼
-                 InsightFace ArcFace Engine
-                 (extracts 512-d L2-norm embedding)
-                            │
-                            ▼
-                 Cosine Similarity Matcher
-             ┌──────────────┴──────────────┐
-          KNOWN                         UNKNOWN
-             │                             │
-             │                    Auto-Registration Engine
-             │                   (VIS-XXXXX, Best-Frame Crop)
-             └──────────────┬──────────────┘
-                            │
-                            ▼
-                 Visitor State Machine
-             ┌──────────────┴──────────────┐
-           ENTRY                         EXIT (exit_timeout_frames)
-             └──────────────┬──────────────┘
-                            │
-                            ▼
-                 Event & Persistence Manager
-        ┌───────────────────┼───────────────────┐
-        ▼                   ▼                   ▼
-  Cropped Images     SQLite Database       events.log
-(logs/entries|exits) (visitors, events)   (structured)
+                                  │
+                                  ▼
+                    Face Crop / Quality Filtering
+                  (min_size, sharpness, confidence)
+                                  │
+                                  ▼
+                   InsightFace / ArcFace Embedding
+                 (extracts 512-d L2-norm vector)
+                                  │
+                                  ▼
+                          Identity Matcher
+                      (Cosine Similarity >= 0.45)
+                      ┌───────────┴───────────┐
+                   KNOWN                   UNKNOWN
+                      │                       │
+                      │               Auto Registration
+                      │           (Best-Frame Crop Evaluation)
+                      └───────────┬───────────┘
+                                  │
+                                  ▼
+                          Persistent Face ID
+                             (VIS-XXXXX)
+                                  │
+                                  ▼
+                        Visitor State Manager
+                 (OUTSIDE -> INSIDE -> OUTSIDE transitions)
+                                  │
+                                  ▼
+                      Entry / Exit Event Manager
+              ┌───────────────────┼───────────────────┐
+              ▼                   ▼                   ▼
+           Images            events.log           SQLite DB
+       (entries/exits)      (structured)     (visitors, events)
+              └───────────────────┬───────────────────┘
+                                  │
+                                  ▼
+                       Unique Visitor Analytics
+                    (COUNT(DISTINCT face_id))
 ```
 
 ---
 
 ## Technology Stack
 
-- **Core**: Python 3.11, OpenCV
+- **Core**: Python 3.11, OpenCV (`cv2`)
 - **Detection & Tracking**: YOLOv8 (`ultralytics`), ByteTrack (`supervision`)
 - **Face Recognition**: InsightFace (`buffalo_sc` ArcFace 512-d), ONNX Runtime
-- **Database**: SQLite, SQLAlchemy ORM
-- **Logging & Monitoring**: Python `logging`, `psutil`
-- **Testing**: `pytest`
-- **Dashboard**: Streamlit
+- **Database & ORM**: SQLite, SQLAlchemy 2.0 ORM
+- **Monitoring & Metrics**: Python `logging`, `psutil`
+- **Testing**: `pytest` (26 automated test modules)
+- **UI & Dashboard**: Streamlit (`dashboard.py`)
+- **Deployment**: Docker, Docker Compose
 
 ---
 
@@ -110,30 +125,30 @@ When a visitor exits and re-enters under a new `track_id` (e.g. `track_id = 31`)
 ```
 VISITR-AI/
 ├── app/
-│   ├── main.py                    # Main CLI application entry point
+│   ├── main.py                    # Application CLI entry point
 │   ├── config/loader.py           # Configuration schema validator & loader
 │   ├── input/                     # File and RTSP video source abstractions
 │   ├── detection/yolo_detector.py # YOLO face detector with skip frames
 │   ├── tracking/byte_tracker.py   # ByteTrack tracker wrapper
 │   ├── recognition/               # InsightFace ArcFace & cosine similarity matcher
 │   ├── registration/              # Quality filter & best-frame auto-registration
-│   ├── visitors/                  # Visitor state machine & temporal history
+│   ├── visitors/                  # Visitor state machine & temporal prediction history
 │   ├── events/                    # Event manager & structured event logger
 │   ├── database/                  # SQLAlchemy models & repository layer
 │   ├── pipeline/processor.py      # Main pipeline orchestrator
-│   ├── monitoring/metrics.py      # Telemetry & compute latency monitor
+│   ├── monitoring/metrics.py      # Telemetry & latency monitoring
 │   └── utils/                     # Image crop, sharpness, and similarity utilities
-├── tests/                         # 18 automated pytest test modules
+├── tests/                         # 26 automated pytest test modules
 ├── data/                          # Video stream input directory
 ├── models/                        # Pre-trained model weight cache
 ├── logs/                          # Runtime logs, entry crops, exit crops
 ├── database/visitors.db           # SQLite database
 ├── output/processed/              # Annotated output video file
-├── sample_output/                 # Exported actual execution benchmark outputs
-├── docs/                          # Architecture, AI planning, compute analysis, compliance matrix
-├── scripts/                       # Benchmark video & sample output exporter scripts
+├── sample_output/                 # Exported empirical execution outputs
+├── docs/                          # Compliance matrix, architecture, AI planning, compute analysis
+├── scripts/                       # Benchmark video, health check, sample exporter scripts
 ├── dashboard.py                   # Streamlit web UI dashboard
-├── config.json                    # Application configuration
+├── config.json                    # Application configuration settings
 ├── requirements.txt               # Dependencies specification
 ├── Dockerfile                     # Docker container definition
 ├── docker-compose.yml             # Docker Compose orchestrator
@@ -145,40 +160,73 @@ VISITR-AI/
 
 ---
 
-## Requirements
+## AI Planning
 
+Detailed development workflow, problem analysis, architecture choices, and 18-stage planning documentation are recorded in [docs/AI_PLANNING.md](docs/AI_PLANNING.md).
+
+---
+
+## AI-Assisted Development
+
+VISITR-AI was constructed using prompt-driven AI development workflows. Engineering directives specified strict application architecture rules (e.g. prohibited libraries, atomic file persistence, state machine guards). AI-generated modular components were systematically validated against automated unit tests. Documented prompts are cataloged in [docs/AI_PROMPTS.md](docs/AI_PROMPTS.md).
+
+---
+
+## Setup Instructions
+
+### Prerequisites
 - Python 3.11+
 - FFmpeg (for video rendering)
 - 4 GB RAM minimum
 
 ---
 
-## Installation
+## Requirements
 
-```bash
-# Clone the repository
-git clone https://github.com/user/VISITR-AI.git
-cd VISITR-AI
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
+Dependencies are specified in `requirements.txt`:
+- `opencv-python>=4.8.0`
+- `ultralytics>=8.0.0`
+- `insightface>=0.7.3`
+- `onnxruntime>=1.16.0`
+- `sqlalchemy>=2.0.0`
+- `scipy>=1.10.0`
+- `numpy>=1.24.0`
+- `pillow>=10.0.0`
+- `pydantic>=2.0.0`
+- `psutil>=5.9.0`
+- `pytest>=7.4.0`
+- `supervision>=0.18.0`
+- `streamlit>=1.28.0`
 
 ---
 
-## Model Setup
+## Installation
 
-Pre-trained YOLO and InsightFace model weights automatically initialize and download on first launch into the local cache (`~/.insightface/models/` and `./yolov8n.pt`).
+```bash
+# 1. Clone repository
+git clone https://github.com/user/VISITR-AI.git
+cd VISITR-AI
+
+# 2. Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Run pre-deployment health check
+python scripts/health_check.py
+```
 
 ---
 
 ## Configuration
 
-All system thresholds are configured via `config.json`:
+All system parameters and thresholds are controlled via `config.json`.
+
+---
+
+## Sample config.json
 
 ```json
 {
@@ -223,26 +271,27 @@ All system thresholds are configured via `config.json`:
 
 ---
 
-## MP4 Usage
-
-To run the application on a video file:
+## Running with MP4
 
 ```bash
-# Generate benchmark sample video
-python scripts/generate_sample_video.py
-
-# Run main processing pipeline
+# Execute main processing pipeline on MP4 file
 python -m app.main --config config.json
+
+# Export empirical execution output artifacts
+python scripts/export_sample_output.py
+
+# Run Streamlit Web Analytics Dashboard
+streamlit run dashboard.py
 ```
 
 ---
 
-## RTSP Usage
+## Running with RTSP
 
-To run live against an RTSP IP camera feed:
+To process a live RTSP IP camera feed:
 
 ```bash
-python -m app.main --config config.json --rtsp "rtsp://admin:pass@192.168.1.100:554/stream1"
+python -m app.main --config config.json --rtsp "rtsp://admin:password@192.168.1.100:554/stream1"
 ```
 
 ---
@@ -250,128 +299,115 @@ python -m app.main --config config.json --rtsp "rtsp://admin:pass@192.168.1.100:
 ## Database
 
 VISITR-AI uses SQLite with SQLAlchemy ORM comprising 4 core tables:
-- `visitors`: `face_id`, `first_seen`, `last_seen`, `total_visits`, `current_status`.
-- `embeddings`: `id`, `face_id`, `embedding_data`.
-- `events`: `id`, `face_id`, `track_id`, `event_type`, `timestamp`, `image_path`, `confidence`, `frame_number`.
-- `tracks`: `id`, `face_id`, `track_id`, `started_at`, `ended_at`.
+- `visitors`: `face_id` (PK), `first_seen`, `last_seen`, `total_visits`, `current_status`.
+- `embeddings`: `id` (PK), `face_id` (FK), `embedding_data` (BLOB vector).
+- `events`: `id` (PK), `face_id` (FK), `track_id`, `event_type`, `timestamp`, `image_path`, `confidence`, `frame_number`.
+- `tracks`: `id` (PK), `face_id` (FK), `track_id`, `started_at`, `ended_at`.
 
 ---
 
-## Auto Registration
+## Logging
 
-When an unknown target is detected, candidate crops are collected over 3 frames. The candidate with the highest composite quality score (`confidence * (sharpness + 1) * sqrt(area)`) is selected, assigned a persistent Face ID (`VIS-XXXXX`), and registered in the database.
-
----
-
-## Recognition
-
-Feature vectors (512-d L2-normalized) extracted by InsightFace ArcFace are matched against the gallery using Cosine Similarity:
-
-$$\text{similarity}(u, v) = \frac{u \cdot v}{\|u\| \|v\|}$$
-
-If `similarity >= similarity_threshold` (default `0.45`), identity is matched.
-
----
-
-## Tracking
-
-ByteTrack maintains bounding box spatial association across frames, assigning temporary `track_id` values.
-
----
-
-## Re-identification
-
-When a previously registered visitor returns (even with a new `track_id`), ArcFace matching links the target back to their existing `face_id`. This records a new visit (`total_visits += 1`) while leaving `unique_visitors` unchanged.
-
----
-
-## Entry / Exit Logging
-
-Strict state machine rules (`OUTSIDE` -> `INSIDE` -> `OUTSIDE`) guarantee exactly one `ENTRY` event when entering and exactly one `EXIT` event after `exit_timeout_frames` of inactivity.
-
----
-
-## Unique Visitor Counting
-
-Unique visitors are calculated directly via database-backed persistent Face IDs:
-
-```python
-unique_count = session.query(Visitor).count()
-```
+Structured audit logs are appended to `logs/events.log`. Each record contains timestamp, event type (`ENTRY` / `EXIT` / `RECOGNIZED` / `NEW_FACE_REGISTERED`), persistent `face_id`, spatial `track_id`, confidence score, frame number, and image path.
 
 ---
 
 ## Sample Output
 
-Execution outputs are exported in `sample_output/`:
+Empirical output artifacts generated from processing `data/sample_video.mp4` are included in `sample_output/`:
+- `sample_output/logs/events.log`: Structured audit logs.
 - `sample_output/entries/`: Cropped entry face images.
 - `sample_output/exits/`: Cropped exit face images.
-- `sample_output/events.log`: Structured audit logs.
-- `sample_output/database_snapshot.sql`: Complete SQL database dump.
-- `sample_output/summary.json`: Measured telemetry JSON summary.
+- `sample_output/database/sample_database_export.txt`: Human-readable SQL database dump.
+- `sample_output/database_snapshot.sql`: Full SQLite SQL snapshot dump.
+- `sample_output/summary.md`: Execution benchmark summary.
 
 ---
 
-## Performance
+## Compute Analysis
 
-Measured execution telemetry on 360 frames benchmark video:
-- **Processing FPS**: **20.3 FPS**
-- **Total Latency**: **60.71 ms / frame**
-  - Detection Latency: 36.41 ms
-  - Tracking Latency: 1.59 ms
-  - Recognition Latency: 21.88 ms
-- **RAM Footprint**: **541.5 MB**
+Detailed latency measurements and 3 hardware scenarios (Low-End CPU, Mid-Range CPU, GPU) are documented in [docs/COMPUTE_ANALYSIS.md](docs/COMPUTE_ANALYSIS.md).
+- **Detection Latency**: **36.41 – 65.69 ms / frame** (YOLOv8n CPU)
+- **Tracking Latency**: **1.59 – 2.69 ms / frame** (ByteTrack)
+- **Recognition Latency**: **21.88 – 35.42 ms / frame** (ArcFace 512-d)
+- **RAM Footprint**: **549.8 MB**
 
 ---
 
 ## Testing
 
-Run the 18 automated tests:
+Run all 26 automated unit and integration tests:
 
 ```bash
 python -m pytest tests/ -v
 ```
 
-See [docs/TESTING.md](docs/TESTING.md) for detailed descriptions.
+All 26 test modules pass cleanly (100% pass rate).
 
 ---
 
-## AI Planning
+## Performance
 
-Detailed design rationale, trade-offs, and requirement matrices are documented in [docs/AI_PLANNING.md](docs/AI_PLANNING.md).
+Measured execution telemetry on 360-frame benchmark video:
+- **Processing Speed**: **11.1 – 20.3 FPS**
+- **Total Pipeline Latency**: **60.71 – 105.71 ms / frame**
+- **Memory Footprint**: **549.8 MB RAM**
+- **Unique Visitor Count Accuracy**: **100%** (0 false count inflations)
 
 ---
 
 ## Assumptions
 
-1. Video input streams have adequate lighting for face localization.
-2. Minimum face crop size is at least 50x50 pixels.
+1. Video streams have sufficient lighting and camera framing for face localization.
+2. Minimum detected face bounding box size is at least 50x50 pixels.
+3. Network RTSP streams provide standard H.264 / H.265 encoded video streams.
 
 ---
 
 ## Limitations
 
-1. Extreme facial occlusions (>60 degree side profiles) reduce ArcFace embedding accuracy.
-2. CPU processing speed scales with resolution; `skip_frames = 5` is recommended for 1080p feeds.
+1. **Extreme Occlusions**: Facial side profile angles exceeding 60 degrees reduce ArcFace embedding confidence below threshold `0.45`.
+2. **CPU Scalability at 4K**: High-resolution 4K feeds benefit from higher frame skipping (`skip_frames = 8`) or GPU hardware acceleration.
+
+---
+
+## Deployment
+
+Deploy using Docker Compose:
+
+```bash
+# Build and launch engine and web dashboard services
+docker-compose up --build -d
+```
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for full containerization, volume mounting, and cloud setup details.
 
 ---
 
 ## Demo Video
 
-- **Explanatory Loom Video Demo**: [https://loom.com/share/visitr-ai-demo-placeholder](https://loom.com/share/visitr-ai-demo-placeholder)
+- **Video Demonstration Script**: [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
+- **Explanatory Video URL**: `VIDEO LINK REQUIRED BEFORE SUBMISSION`
+
+---
+
+## AI Prompts
+
+A catalog of all development prompts organized into 14 distinct functional prompt categories is documented in [docs/AI_PROMPTS.md](docs/AI_PROMPTS.md).
+
+---
+
+## Interview Preparation
+
+A 24-question technical defense guide explaining algorithm selection, cosine similarity formulas, state machine guards, and failure recoveries is available in [docs/INTERVIEW_GUIDE.md](docs/INTERVIEW_GUIDE.md).
 
 ---
 
 ## Future Improvements
 
-- GPU Acceleration with TensorRT / CUDA ONNX Execution Providers.
-- Multi-camera re-identification across spatial camera networks.
-
----
-
-## License
-
-MIT License. See [LICENSE](LICENSE) for details.
+- TensorRT / CUDA ONNX GPU acceleration providers.
+- Multi-camera cross-camera re-identification across spatial camera networks.
+- Vector database integration (Milvus / pgvector) for scaling to millions of embeddings.
 
 ---
 
