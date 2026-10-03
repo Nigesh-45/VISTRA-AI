@@ -1,0 +1,30 @@
+# Python cache and environments
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Data and database dynamic files
+database/*.db
+database/*.sqlite
+database/*.sqlite3
+
+# Dynamic runtime logs and outputs
+logs/entries/*
+logs/exits/*
+logs/events.log
+output/processed/*
+
+# Environment variables & secrets
+.env
+.env.local
+
+# Git and IDE metadata
+.git/
+.gitignore
+.vscode/
+.idea/
+*.swp

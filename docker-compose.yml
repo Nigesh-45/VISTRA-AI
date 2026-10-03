@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  visitr-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: visitr_ai_engine
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./database:/app/database
+      - ./output:/app/output
+      - ./models:/app/models
+    environment:
+      - CONFIG_PATH=config.json
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: visitr_dashboard
+    command: streamlit run dashboard.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./logs:/app/logs
+      - ./database:/app/database
+      - ./output:/app/output
+    depends_on:
+      - visitr-ai
+    restart: unless-stopped

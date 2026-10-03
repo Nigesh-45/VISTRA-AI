@@ -1,0 +1,38 @@
+{
+  "input": {
+    "type": "file",
+    "source": "data/sample_video.mp4",
+    "rtsp_reconnect_delay": 3.0,
+    "rtsp_max_retries": 10
+  },
+  "detection": {
+    "model": "yolov8n.pt",
+    "confidence": 0.50,
+    "iou": 0.45,
+    "skip_frames": 5
+  },
+  "tracking": {
+    "tracker": "bytetrack",
+    "max_age": 30,
+    "track_thresh": 0.50
+  },
+  "recognition": {
+    "model": "buffalo_sc",
+    "similarity_threshold": 0.45,
+    "min_face_size": 50
+  },
+  "events": {
+    "exit_timeout_frames": 30,
+    "save_images": true,
+    "entry_directory": "logs/entries",
+    "exit_directory": "logs/exits",
+    "event_log": "logs/events.log"
+  },
+  "database": {
+    "url": "sqlite:///database/visitors.db"
+  },
+  "output": {
+    "save_video": true,
+    "path": "output/processed/processed_video.mp4"
+  }
+}
