@@ -1,10 +1,22 @@
-import json
 import os
 import sqlite3
-from http.server import BaseHTTPRequestHandler
-from urllib.parse import parse_qs, urlparse
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-# Define sample / fallback data for serverless environment
+app = FastAPI(
+    title="VISITR-AI API",
+    description="Intelligent Visitor Analytics & Face Tracking Vercel Engine",
+    version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 MOCK_VISITORS = [
     {
         "visitor_id": "VIS-00001",
@@ -46,7 +58,7 @@ MOCK_EVENTS = [
     {"timestamp": "2026-10-02 18:32:10", "event": "EXIT", "visitor_id": "VIS-00001", "track_id": 7, "confidence": 0.951}
 ]
 
-def get_db_data():
+def _fetch_db_records():
     db_path = os.path.join(os.path.dirname(__file__), "..", "database", "visitors.db")
     if not os.path.exists(db_path):
         return None, None
@@ -86,67 +98,53 @@ def get_db_data():
     except Exception:
         return None, None
 
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        parsed_path = urlparse(self.path)
-        path = parsed_path.path
 
-        visitors, events = get_db_data()
-        if not visitors:
-            visitors = MOCK_VISITORS
-            events = MOCK_EVENTS
+@app.get("/api/health")
+@app.get("/health")
+def get_health():
+    return {"status": "healthy", "service": "VISITR-AI Vercel API", "version": "1.0.0"}
 
-        total_unique = len(visitors)
-        currently_inside = sum(1 for v in visitors if v["status"] == "INSIDE")
-        total_entries = sum(v["entries"] for v in visitors)
-        total_exits = sum(v["exits"] for v in visitors)
 
-        response_data = {}
+@app.get("/api/stats")
+@app.get("/api")
+def get_stats():
+    visitors, events = _fetch_db_records()
+    if not visitors:
+        visitors = MOCK_VISITORS
+    total_unique = len(visitors)
+    currently_inside = sum(1 for v in visitors if v["status"] == "INSIDE")
+    total_entries = sum(v["entries"] for v in visitors)
+    total_exits = sum(v["exits"] for v in visitors)
 
-        if path == "/api/stats" or path == "/api":
-            response_data = {
-                "status": "success",
-                "system": "VISTRA-AI Visitor Analytics Engine",
-                "summary": {
-                    "total_unique_visitors": total_unique,
-                    "currently_inside": currently_inside,
-                    "total_entries": total_entries,
-                    "total_exits": total_exits,
-                    "system_health": "100% HEALTHY",
-                    "models_loaded": {
-                        "detector": "YOLOv8n-Face (0.50 conf threshold)",
-                        "tracker": "ByteTrack (0.60 match threshold)",
-                        "embedder": "InsightFace ArcFace 512-D"
-                    }
-                }
+    return {
+        "status": "success",
+        "system": "VISITR-AI Visitor Analytics Engine",
+        "summary": {
+            "total_unique_visitors": total_unique,
+            "currently_inside": currently_inside,
+            "total_entries": total_entries,
+            "total_exits": total_exits,
+            "system_health": "100% HEALTHY",
+            "models_loaded": {
+                "detector": "YOLOv8n-Face (0.50 conf threshold)",
+                "tracker": "ByteTrack (0.60 match threshold)",
+                "embedder": "InsightFace ArcFace 512-D"
             }
-        elif path == "/api/visitors":
-            response_data = {
-                "status": "success",
-                "count": len(visitors),
-                "visitors": visitors
-            }
-        elif path == "/api/events":
-            response_data = {
-                "status": "success",
-                "count": len(events),
-                "events": events
-            }
-        elif path == "/api/health":
-            response_data = {
-                "status": "healthy",
-                "service": "VISITR-AI Serverless Engine",
-                "version": "1.0.0"
-            }
-        else:
-            self.send_response(404)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": "Endpoint not found"}).encode('utf-8'))
-            return
+        }
+    }
 
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.end_headers()
-        self.wfile.write(json.dumps(response_data, indent=2).encode('utf-8'))
+
+@app.get("/api/visitors")
+def get_visitors():
+    visitors, _ = _fetch_db_records()
+    if not visitors:
+        visitors = MOCK_VISITORS
+    return {"status": "success", "count": len(visitors), "visitors": visitors}
+
+
+@app.get("/api/events")
+def get_events():
+    _, events = _fetch_db_records()
+    if not events:
+        events = MOCK_EVENTS
+    return {"status": "success", "count": len(events), "events": events}

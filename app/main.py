@@ -10,9 +10,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from app.config.loader import load_config
-from app.pipeline.processor import PipelineProcessor
-
 # --------------------------------------------------------------------------
 # FastAPI Web Application for Vercel / Cloud Serverless Deployment
 # --------------------------------------------------------------------------
@@ -167,6 +164,9 @@ def get_events():
 # CLI Application Runner
 # --------------------------------------------------------------------------
 def main():
+    from app.config.loader import load_config
+    from app.pipeline.processor import PipelineProcessor
+
     parser = argparse.ArgumentParser(description="VISITR-AI: Intelligent Face Tracking, Auto-Registration & Unique Visitor Analytics")
     parser.add_argument("--config", type=str, default="config.json", help="Path to configuration JSON file")
     parser.add_argument("--max-frames", type=int, default=None, help="Maximum number of frames to process")
