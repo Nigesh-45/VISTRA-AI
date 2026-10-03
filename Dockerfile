@@ -32,6 +32,7 @@ COPY README.md .
 
 # Create persistent runtime directory structure
 RUN mkdir -p data models logs/entries logs/exits database output/processed
+RUN chmod +x scripts/start_render.sh
 
 # Default command runs the main computer vision pipeline
 CMD ["python", "-m", "app.main", "--config", "config.json"]
